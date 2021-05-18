@@ -215,14 +215,18 @@ int main(int argc, char **argv)
 {
 	char *usr = NULL;
 	int c, interval = 10;
+	bool is_skylake = false;
 
-	while ((c = getopt(argc, argv, "i:u:")) != -1) {
+	while ((c = getopt(argc, argv, "i:u:s")) != -1) {
 		switch(c) {
 			case 'u':
 				usr = optarg;
 				break;
 			case 'i':
 				interval = atoi(optarg);
+				break;
+			case 's':
+				is_skylake = true;
 				break;
 			default:
 				printf("Usage: %s [-u username] [-i interval]\n", argv[0]);
@@ -236,7 +240,7 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-	if(init_perf_event_masks(usr)) {
+	if(init_perf_event_masks(is_skylake ? SkylakeScalable : Haswell)) {
 		printf("Unknown machine type\n");
 		exit(EXIT_FAILURE);
 	}

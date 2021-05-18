@@ -1,3 +1,6 @@
+#ifndef _HEADER_H_
+#define _HEADER_H_
+
 #define FILENAMELENGTH		50
 #define LINELENGTH		2000
 #define PAGE_SIZE		4096
@@ -29,3 +32,5 @@ struct process {
 	double cycles_per_walk;
 	struct process *next;
 };
+
+#endif

@@ -8,12 +8,19 @@
 #include <string.h>
 #include <asm/unistd.h>
 
+#include "header.h"
+
 #define SIZE_LONG	8
 unsigned long DTLB_LOAD_MISSES_WALK_DURATION = 0;
 unsigned long DTLB_STORE_MISSES_WALK_DURATION = 0;
 unsigned long CPU_CLK_UNHALTED = 0;
 unsigned long DTLB_LOAD_MISSES_WALK_COMPLETED = 0;
 unsigned long DTLB_STORE_MISSES_WALK_COMPLETED = 0;
+
+enum ProcessorFamily {
+	SkylakeScalable, // family 0x6, model 0x55
+	Haswell, // family 0x6, models 0x3C, 0x45, 0x46
+};
 
 static long perf_event_open(struct perf_event_attr *hw_event,
 		pid_t pid, int cpu, int group_fd, unsigned long flags)
@@ -25,30 +32,42 @@ static long perf_event_open(struct perf_event_attr *hw_event,
 	return ret;
 }
 
-int init_perf_event_masks(char *usr)
+int init_perf_event_masks(enum ProcessorFamily family)
 {
 	/*
-	 * These are hardcoded for mcastle1 and Ivy-Bridge machines.
+	 * Skylake and onward use WALK_ACTIVE. Prior processors use WALK_DURATION.
+	 *
+	 * The format of the config is specified in the Intel SDM, Vol 3, Ch 18.6.8.1.
+	 *
+	 * 0xXXMMEE, where
+	 * 	- XXX is a bitfield that usually has value 0x53 or 0x153, see manual for meaning.
+	 * 	- MM is the umask value
+	 * 	- EE is the event number
 	 */
-	if (strcmp(usr, "ashishpanwar") == 0) {
-		DTLB_LOAD_MISSES_WALK_DURATION = 0x531008;
-		DTLB_STORE_MISSES_WALK_DURATION = 0x531049;
-		CPU_CLK_UNHALTED = 0x53003C;
-		DTLB_LOAD_MISSES_WALK_COMPLETED = 0x530e08;
-		DTLB_STORE_MISSES_WALK_COMPLETED = 0x530e49;
-		return 0;
-	} else if (strcmp(usr, "panwar") == 0) {
-		DTLB_LOAD_MISSES_WALK_DURATION = 0x538408;
-		DTLB_STORE_MISSES_WALK_DURATION = 0x530449;
-		CPU_CLK_UNHALTED = 0x53003C;
-		return 0;
-	}
 
-	return -1;
+	switch (family) {
+		case SkylakeScalable:
+			DTLB_LOAD_MISSES_WALK_DURATION = 0x1531008;
+			DTLB_STORE_MISSES_WALK_DURATION = 0x1531049;
+			DTLB_LOAD_MISSES_WALK_COMPLETED = 0x530E08;
+			DTLB_STORE_MISSES_WALK_COMPLETED = 0x530E49;
+			CPU_CLK_UNHALTED = 0x530300; // unhalted.ref_tsc
+			return 0;
+
+		case Haswell:
+			DTLB_LOAD_MISSES_WALK_DURATION = 0x531008;
+			DTLB_STORE_MISSES_WALK_DURATION = 0x531049;
+			DTLB_LOAD_MISSES_WALK_COMPLETED = 0x530e08;
+			DTLB_STORE_MISSES_WALK_COMPLETED = 0x530e49;
+			CPU_CLK_UNHALTED = 0x53003C;
+
+		default:
+			return -1;
+	}
 }
 
 
-static int set_perf_raw_event(struct perf_event_attr *attr, unsigned long event)
+static void set_perf_raw_event(struct perf_event_attr *attr, unsigned long event)
 {
 	memset(attr, 0, sizeof(struct perf_event_attr));
 	attr->type = PERF_TYPE_RAW;
@@ -59,7 +78,7 @@ static int set_perf_raw_event(struct perf_event_attr *attr, unsigned long event)
 	attr->exclude_hv = 1;
 }
 
-static int set_perf_hw_event_cycles(struct perf_event_attr *attr)
+static void set_perf_hw_event_cycles(struct perf_event_attr *attr)
 {
 	memset(attr, 0, sizeof(struct perf_event_attr));
 	attr->type = PERF_TYPE_HARDWARE;
