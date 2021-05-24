@@ -60,6 +60,7 @@ int init_perf_event_masks(enum ProcessorFamily family)
 			DTLB_LOAD_MISSES_WALK_COMPLETED = 0x530e08;
 			DTLB_STORE_MISSES_WALK_COMPLETED = 0x530e49;
 			CPU_CLK_UNHALTED = 0x53003C;
+			return 0;
 
 		default:
 			return -1;
