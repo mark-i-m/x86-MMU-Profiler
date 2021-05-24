@@ -198,7 +198,9 @@ static void profile_forever(char *prog_regex, int interval)
 			int pid;
 
 			/* Ignore background deamons */
-			if (strstr(line, "sshd") || strstr(line, "bash"))
+			if (strstr(line, "sshd")
+				|| strstr(line, "bash")
+				|| strstr(line, "global_profile"))
 				continue;
 
 			sscanf(line, "%s %d", tmp, &pid);
