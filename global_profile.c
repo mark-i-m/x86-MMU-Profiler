@@ -7,7 +7,8 @@
 #define max(a, b) (((a) < (b)) ? (b) : (a))
 
 const char *USAGE = "Usage: %s -p 'regex of prog names' "
-		    "[-i interval] [-s]\n";
+		    "-f <family; see main() for supported list>"
+		    "[-i interval]\n";
 
 unsigned long current_timestamp = 0;
 
@@ -220,14 +221,16 @@ int main(int argc, char **argv)
 	int c, interval = 10;
 	bool is_skylake = false;
 	char *prog_regex = NULL;
+	char *family_str = NULL;
+	enum ProcessorFamily family;
 
-	while ((c = getopt(argc, argv, "i:sp:")) != -1) {
+	while ((c = getopt(argc, argv, "i:f:p:")) != -1) {
 		switch(c) {
 			case 'i':
 				interval = atoi(optarg);
 				break;
-			case 's':
-				is_skylake = true;
+			case 'f':
+				family_str = optarg;
 				break;
 			case 'p':
 				prog_regex = optarg;
@@ -238,12 +241,22 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (prog_regex == NULL) {
+	if (prog_regex == NULL || family_str == NULL) {
 		printf(USAGE, argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
-	if(init_perf_event_masks(is_skylake ? SkylakeScalable : Haswell)) {
+	/* Supported CPU microarchs. To add more, update lib_perf.h */
+	if (strstr(family_str, "skylakesp")) {
+		family = SkylakeScalable;
+	} else if (strstr(family_str, "haswell")) {
+		family = Haswell;
+	} else {
+		printf("Unknown machine type");
+		exit(EXIT_FAILURE);
+	}
+
+	if(init_perf_event_masks(family)) {
 		printf("Unknown machine type\n");
 		exit(EXIT_FAILURE);
 	}
