@@ -6,6 +6,9 @@
 
 #define max(a, b) (((a) < (b)) ? (b) : (a))
 
+const char *USAGE = "Usage: %s -p 'regex of prog names' "
+		    "[-i interval] [-s]\n";
+
 unsigned long current_timestamp = 0;
 
 /*
@@ -176,14 +179,13 @@ static void update_candidate_process(struct process *head)
 #endif
 }
 
-static void profile_forever(char *usr, int interval)
+static void profile_forever(char *prog_regex, int interval)
 {
 	FILE *fp;
 	struct process *head = NULL;
 	char line[LINELENGTH], command[LINELENGTH], tmp[LINELENGTH];
 
-	//sprintf(command, "ps aux | grep 'priyanka\\|redis-server\\|root'");
-	sprintf(command, "ps aux | grep 'priyanka\\|redis-server\\|mongod\\|cassandra\\|mysql'");
+	sprintf(command, "ps aux | grep '%s'", prog_regex);
 	while(true) {
 		/* get all processes of the current user*/
 		fp = popen(command, "r");
@@ -213,36 +215,35 @@ static void profile_forever(char *usr, int interval)
 
 int main(int argc, char **argv)
 {
-	char *usr = NULL;
 	int c, interval = 10;
 	bool is_skylake = false;
+	char *prog_regex = NULL;
 
-	while ((c = getopt(argc, argv, "i:u:s")) != -1) {
+	while ((c = getopt(argc, argv, "i:sp:")) != -1) {
 		switch(c) {
-			case 'u':
-				usr = optarg;
-				break;
 			case 'i':
 				interval = atoi(optarg);
 				break;
 			case 's':
 				is_skylake = true;
 				break;
+			case 'p':
+				prog_regex = optarg;
+				break;
 			default:
-				printf("Usage: %s [-u username] [-i interval]\n", argv[0]);
+				printf(USAGE, argv[0]);
 				exit(EXIT_FAILURE);
 		}
 	}
-	if (usr == NULL) {
-		usr = malloc(sizeof(LINELENGTH));
-		if (getlogin_r(usr, LINELENGTH)) {
-			printf("Could not retrieve login name.\n");
-			exit(EXIT_FAILURE);
-		}
+
+	if (prog_regex == NULL) {
+		printf(USAGE, argv[0]);
+		exit(EXIT_FAILURE);
 	}
+
 	if(init_perf_event_masks(is_skylake ? SkylakeScalable : Haswell)) {
 		printf("Unknown machine type\n");
 		exit(EXIT_FAILURE);
 	}
-	profile_forever(usr, interval);
+	profile_forever(prog_regex, interval);
 }
