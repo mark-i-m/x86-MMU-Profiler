@@ -216,6 +216,24 @@ static void profile_forever(char *prog_regex, int interval)
 	}
 }
 
+int make_daemon(void) {
+    int fd;
+
+    switch (fork()) {
+    case -1:
+        return (-1);
+    case 0:
+        break;
+    default:
+        _exit(EXIT_SUCCESS);
+    }
+
+    if (setsid() == -1)
+        return (-1);
+
+    return (0);
+}
+
 int main(int argc, char **argv)
 {
 	int c, interval = 10;
@@ -223,8 +241,9 @@ int main(int argc, char **argv)
 	char *prog_regex = NULL;
 	char *family_str = NULL;
 	enum ProcessorFamily family;
+	bool daemonize = false;
 
-	while ((c = getopt(argc, argv, "i:f:p:")) != -1) {
+	while ((c = getopt(argc, argv, "i:f:p:d")) != -1) {
 		switch(c) {
 			case 'i':
 				interval = atoi(optarg);
@@ -234,6 +253,9 @@ int main(int argc, char **argv)
 				break;
 			case 'p':
 				prog_regex = optarg;
+				break;
+			case 'd':
+				daemonize = true;
 				break;
 			default:
 				printf(USAGE, argv[0]);
@@ -256,9 +278,15 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if(init_perf_event_masks(family)) {
+	if (init_perf_event_masks(family)) {
 		printf("Unknown machine type\n");
 		exit(EXIT_FAILURE);
 	}
+
+	if (daemonize && make_daemon()) {
+		printf("Unable to daemonize\n");
+		exit(EXIT_FAILURE);
+	}
+
 	profile_forever(prog_regex, interval);
 }
